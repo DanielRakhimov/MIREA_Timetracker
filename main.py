@@ -1,8 +1,7 @@
 import sqlite3
-import datetime
+import datetime as dt
 import openpyxl
 
-current_date = datetime.date.today()
 class Application:
     def __init__(self, database):
         self.conn = sqlite3.connect(database)
@@ -10,36 +9,39 @@ class Application:
         self.c.execute('''CREATE TABLE IF NOT EXISTS events 
                           (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                            name TEXT, 
-                           date TEXT, 
+                           datetime DATETIME, 
                            description TEXT,
                            notification_sent BOOLEAN DEFAULT 0)''')
         self.conn.commit()
 
-    def add_event(self, name, date, description):
-        # Проверка на прошедшую дату
-        if date < datetime.date.today():
-            print("Ошибка: нельзя добавить мероприятие с прошедшей датой")
+    def add_event(self, name, datetime, description):
+        # Проверка на прошедшую дату и время
+        if datetime < dt.datetime.now():
+            print("Ошибка: нельзя добавить мероприятие с прошедшей датой и временем")
             return
 
         # Добавление информации о мероприятии
-        self.c.execute("INSERT INTO events (name, date, description) VALUES (?, ?, ?)", (name, date, description))
+        self.c.execute("INSERT INTO events (name, datetime, description) VALUES (?, ?, ?)", (name, datetime, description))
         self.conn.commit()
 
     def get_upcoming_events(self):
-        # Получение списка предстоящих мероприятий
-        today = datetime.date.today()
-        self.c.execute("SELECT * FROM events WHERE date = ? AND notification_sent = 0", (today,))
+        # Получение списка предстоящих мероприятий в текущем дне
+        now = dt.datetime.now()
+        start_of_day = dt.datetime.combine(now.date(), dt.time())
+        self.c.execute("SELECT * FROM events WHERE datetime >= ? AND datetime < ? AND notification_sent = 0",
+                       (now, start_of_day + dt.timedelta(days=1)))
         upcoming_events = self.c.fetchall()
 
         if len(upcoming_events) == 0:
-            print("Запланированных событий нет")
+            print("Запланированных событий на сегодня нет")
 
-        return []
+        return upcoming_events
 
     def send_notification(self):
         events = self.get_upcoming_events()
         for event in events:
-            message = f"Напоминаем, что мероприятие \"{event[1]}\" начнется {event[2]}. {event[3]}"
+            event_datetime = str(event[2])[:-3]
+            message = f"Напоминаем, что мероприятие \"{event[1]}\" начнется {event_datetime}. {event[3]}"
             print(message)
             # Пометка, что уведомление отправлено
             self.c.execute("UPDATE events SET notification_sent = 1 WHERE id = ?", (event[0],))
@@ -48,13 +50,13 @@ class Application:
     def export_past_events(self):
         # Выгрузка всех прошедших мероприятий в файл xlsx
         past_events = []
-        today = datetime.date.today()
-        self.c.execute("SELECT id, name, date, description FROM events WHERE date < ?", (today,))
+        now = dt.datetime.now()
+        self.c.execute("SELECT id, name, datetime, description FROM events WHERE datetime < ?", (now,))
         past_events = self.c.fetchall()
 
         workbook = openpyxl.Workbook()
         worksheet = workbook.active
-        worksheet.append(["ID", "Название", "Дата", "Описание"])
+        worksheet.append(["ID", "Название", "Дата и время", "Описание"])
 
         for event in past_events:
             worksheet.append(event)
@@ -72,8 +74,8 @@ class Application:
 app = Application('events.db')
 
 # Добавление мероприятий
-app.add_event("Встреча с клиентом", datetime.date(2024, 1, 10), "Встреча в офисе")
-app.add_event("Презентация", datetime.date(2024, 2, 10), "Презентация нового продукта")
+app.add_event("Встреча с клиентом", dt.datetime(2024, 1, 12, 9, 0), "Встреча в офисе")
+app.add_event("Презентация", dt.datetime(2024, 2, 12, 18, 40), "Презентация нового продукта")
 
 # Получение списка предстоящих мероприятий
 upcoming_events = app.get_upcoming_events()
