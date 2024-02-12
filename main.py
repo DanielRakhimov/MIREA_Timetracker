@@ -75,7 +75,7 @@ app = Application('events.db')
 
 # Добавление мероприятий
 app.add_event("Встреча с клиентом", dt.datetime(2024, 1, 12, 9, 0), "Встреча в офисе")
-app.add_event("Презентация", dt.datetime(2024, 2, 12, 18, 40), "Презентация нового продукта")
+app.add_event("Презентация", dt.datetime(2024, 2, 12, 18, 50), "Презентация нового продукта")
 
 # Получение списка предстоящих мероприятий
 upcoming_events = app.get_upcoming_events()
