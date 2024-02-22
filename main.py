@@ -15,17 +15,27 @@ class Application:
         self.conn.commit()
 
     def add_event(self, name, datetime, description):
-        # Проверка на прошедшую дату и время
         if datetime < dt.datetime.now():
             print("Ошибка: нельзя добавить мероприятие с прошедшей датой и временем")
             return
-
-        # Добавление информации о мероприятии
         self.c.execute("INSERT INTO events (name, datetime, description) VALUES (?, ?, ?)", (name, datetime, description))
         self.conn.commit()
 
+    def delete_event(self, event_id):
+        # Проверка наличия мероприятия по указанному ID
+        self.c.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+        event = self.c.fetchone()
+
+        if not event:
+            print("Мероприятие не найдено")
+            return
+
+        # Удаление мероприятия
+        self.c.execute("DELETE FROM events WHERE id = ?", (event_id,))
+        self.conn.commit()
+        print("Мероприятие успешно удалено")
+
     def get_upcoming_events(self):
-        # Получение списка предстоящих мероприятий в текущем дне
         now = dt.datetime.now()
         start_of_day = dt.datetime.combine(now.date(), dt.time())
         self.c.execute("SELECT * FROM events WHERE datetime >= ? AND datetime < ? AND notification_sent = 0",
@@ -43,12 +53,10 @@ class Application:
             event_datetime = str(event[2])[:-3]
             message = f"Напоминаем, что мероприятие \"{event[1]}\" начнется {event_datetime}. {event[3]}"
             print(message)
-            # Пометка, что уведомление отправлено
             self.c.execute("UPDATE events SET notification_sent = 1 WHERE id = ?", (event[0],))
             self.conn.commit()
 
     def export_past_events(self):
-        # Выгрузка всех прошедших мероприятий в файл xlsx
         past_events = []
         now = dt.datetime.now()
         self.c.execute("SELECT id, name, datetime, description FROM events WHERE datetime < ?", (now,))
@@ -64,28 +72,28 @@ class Application:
         workbook.save('past_events.xlsx')
 
     def close_connection(self):
-        # Закрытие соединения с базой данных
         self.conn.close()
 
 
 # Пример использования
-
-# Создание экземпляра приложения
 app = Application('events.db')
 
 # Добавление мероприятий
 app.add_event("Встреча с клиентом", dt.datetime(2024, 1, 12, 9, 0), "Встреча в офисе")
-app.add_event("Презентация", dt.datetime(2024, 2, 12, 18, 50), "Презентация нового продукта")
+app.add_event("Презентация", dt.datetime(2024, 2, 22, 21, 50), "Презентация нового продукта")
 
 # Получение списка предстоящих мероприятий
 upcoming_events = app.get_upcoming_events()
 for event in upcoming_events:
-    print(f"{event[1]} - {event[2]}")
+    print(f"{event[0]} {event[1]} - {event[2]}")
+
+# Удаление мероприятия по ID
+app.delete_event(19)
 
 # Отправка уведомления о старте мероприятия
 app.send_notification()
 
-# Выгрузка всех прошедших мероприятий в файл CSV
+# Выгрузка всех прошедших мероприятий в файл XLSX
 app.export_past_events()
 
 # Закрытие соединения с базой данных
